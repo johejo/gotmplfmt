@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/debug"
 )
 
 var (
@@ -13,10 +14,18 @@ var (
 	flagSpacing     = flag.Bool("spacing", false, "add spaces inside {{ }} braces")
 	flagIndentStyle = flag.String("indent-style", "none", "indentation style: none, tabs, spaces")
 	flagIndentSize  = flag.Int("indent-size", 2, "indentation size")
+	flagVersion     = flag.Bool("version", false, "print version and exit")
+
+	version string
 )
 
 func main() {
 	flag.Parse()
+
+	if *flagVersion {
+		_, _ = io.WriteString(os.Stdout, "gotmplfmt "+resolveVersion(debug.ReadBuildInfo)+"\n")
+		return
+	}
 
 	opts := Options{
 		Spacing:     *flagSpacing,
@@ -74,4 +83,16 @@ func processFile(path string, opts Options) error {
 
 	_, err = io.Copy(os.Stdout, &buf)
 	return err
+}
+
+func resolveVersion(readBuildInfo func() (*debug.BuildInfo, bool)) string {
+	if version != "" {
+		return version
+	}
+
+	if info, ok := readBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+
+	return "(devel)"
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"testing"
@@ -493,6 +494,63 @@ func TestFormatSpacingPreservesStringLiteralActionOutput(t *testing.T) {
 	}, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestResolveVersion(t *testing.T) {
+	originalVersion := version
+	t.Cleanup(func() {
+		version = originalVersion
+	})
+
+	tests := []struct {
+		name        string
+		version     string
+		buildInfo   *debug.BuildInfo
+		buildInfoOK bool
+		want        string
+	}{
+		{
+			name:        "ldflags version wins",
+			version:     "v1.2.3",
+			buildInfo:   &debug.BuildInfo{Main: debug.Module{Version: "v9.9.9"}},
+			buildInfoOK: true,
+			want:        "v1.2.3",
+		},
+		{
+			name:        "build info version",
+			buildInfo:   &debug.BuildInfo{Main: debug.Module{Version: "v1.2.3"}},
+			buildInfoOK: true,
+			want:        "v1.2.3",
+		},
+		{
+			name:        "devel build info falls back to devel",
+			buildInfo:   &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}},
+			buildInfoOK: true,
+			want:        "(devel)",
+		},
+		{
+			name:        "empty build info version falls back to devel",
+			buildInfo:   &debug.BuildInfo{},
+			buildInfoOK: true,
+			want:        "(devel)",
+		},
+		{
+			name: "missing build info falls back to devel",
+			want: "(devel)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			version = tt.version
+			got := resolveVersion(func() (*debug.BuildInfo, bool) {
+				return tt.buildInfo, tt.buildInfoOK
+			})
+			if got != tt.want {
+				t.Fatalf("resolveVersion() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
