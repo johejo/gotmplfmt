@@ -79,6 +79,24 @@ func TestFormat(t *testing.T) {
 			expect: "{{ .foo | bar }}\n",
 		},
 		{
+			name:   "spacing ignores close delimiter in quoted string",
+			input:  `{{printf "%s" "}}"}}` + "\n",
+			opts:   Options{Spacing: true, IndentStyle: "none"},
+			expect: `{{ printf "%s" "}}" }}` + "\n",
+		},
+		{
+			name:   "spacing ignores close delimiter in raw string",
+			input:  "{{printf `}}`}}\n",
+			opts:   Options{Spacing: true, IndentStyle: "none"},
+			expect: "{{ printf `}}` }}\n",
+		},
+		{
+			name:   "spacing preserves comment containing close delimiter",
+			input:  "{{/* }} */}}\n",
+			opts:   Options{Spacing: true, IndentStyle: "none"},
+			expect: "{{/* }} */}}\n",
+		},
+		{
 			name:   "spacing disabled",
 			input:  "{{.foo}}\n",
 			opts:   Options{Spacing: false, IndentStyle: "none"},
@@ -287,6 +305,18 @@ func TestFormat(t *testing.T) {
 			input:  "",
 			opts:   Options{Spacing: true, IndentStyle: "spaces", IndentSize: 2},
 			expect: "",
+		},
+		{
+			name:   "preserves missing trailing newline",
+			input:  "{{.foo}}",
+			opts:   Options{Spacing: true, IndentStyle: "none"},
+			expect: "{{ .foo }}",
+		},
+		{
+			name:   "long line",
+			input:  strings.Repeat("a", 70_000) + "\n",
+			opts:   Options{Spacing: true, IndentStyle: "none"},
+			expect: strings.Repeat("a", 70_000) + "\n",
 		},
 		{
 			name:   "no actions",

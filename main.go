@@ -29,6 +29,9 @@ func main() {
 	default:
 		log.Fatalf("invalid indent-style: %q (must be none, tabs, or spaces)", opts.IndentStyle)
 	}
+	if opts.IndentSize < 0 {
+		log.Fatalf("invalid indent-size: %d (must be non-negative)", opts.IndentSize)
+	}
 
 	args := flag.Args()
 	if len(args) == 0 {

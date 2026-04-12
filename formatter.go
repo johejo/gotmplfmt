@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"io"
 	"strings"
 )
@@ -13,13 +12,18 @@ type Options struct {
 }
 
 func Format(w io.Writer, r io.Reader, opts Options) error {
-	scanner := bufio.NewScanner(r)
-	var lines []string
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
+	data, err := io.ReadAll(r)
+	if err != nil {
 		return err
+	}
+	if len(data) == 0 {
+		return nil
+	}
+
+	trailingNewline := data[len(data)-1] == '\n'
+	lines := strings.Split(string(data), "\n")
+	if trailingNewline {
+		lines = lines[:len(lines)-1]
 	}
 
 	if opts.Spacing {
@@ -42,8 +46,7 @@ func Format(w io.Writer, r io.Reader, opts Options) error {
 			return err
 		}
 	}
-	// Preserve trailing newline if input had content
-	if len(lines) > 0 {
+	if trailingNewline {
 		if _, err := io.WriteString(w, "\n"); err != nil {
 			return err
 		}
@@ -60,12 +63,11 @@ func applySpacing(line string) string {
 			b.WriteString(rest)
 			break
 		}
-		closeIdx := strings.Index(rest[openIdx:], "}}")
+		closeIdx := findActionClose(rest, openIdx)
 		if closeIdx == -1 {
 			b.WriteString(rest)
 			break
 		}
-		closeIdx += openIdx
 
 		// Write text before the action
 		b.WriteString(rest[:openIdx])
@@ -76,6 +78,53 @@ func applySpacing(line string) string {
 		rest = rest[closeIdx+2:]
 	}
 	return b.String()
+}
+
+func findActionClose(s string, openIdx int) int {
+	var quote byte
+	escaped := false
+	inComment := false
+
+	for i := openIdx + 2; i < len(s)-1; i++ {
+		if inComment {
+			if s[i] == '*' && s[i+1] == '/' {
+				inComment = false
+				i++
+			}
+			continue
+		}
+
+		if quote != 0 {
+			if quote != '`' && escaped {
+				escaped = false
+				continue
+			}
+			if quote != '`' && s[i] == '\\' {
+				escaped = true
+				continue
+			}
+			if s[i] == quote {
+				quote = 0
+			}
+			continue
+		}
+
+		switch s[i] {
+		case '"', '\'', '`':
+			quote = s[i]
+		case '/':
+			if s[i+1] == '*' {
+				inComment = true
+				i++
+			}
+		case '}':
+			if s[i+1] == '}' {
+				return i
+			}
+		}
+	}
+
+	return -1
 }
 
 func reformatAction(action string) string {
