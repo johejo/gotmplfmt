@@ -142,15 +142,13 @@ func reformatAction(action string) string {
 
 	body := inner
 
-	if strings.HasPrefix(strings.TrimLeft(body, " \t"), "-") {
+	if hasLeftTrimMarker(body) {
 		openDelim = "{{-"
-		body = strings.TrimLeft(body, " \t")
 		body = body[1:] // remove the '-'
 	}
 
-	if strings.HasSuffix(strings.TrimRight(body, " \t"), "-") {
+	if hasRightTrimMarker(body) {
 		closeDelim = "-}}"
-		body = strings.TrimRight(body, " \t")
 		body = body[:len(body)-1] // remove the '-'
 	}
 
@@ -160,6 +158,23 @@ func reformatAction(action string) string {
 	}
 
 	return openDelim + " " + body + " " + closeDelim
+}
+
+func hasLeftTrimMarker(body string) bool {
+	return len(body) >= 2 && body[0] == '-' && isTemplateWhitespace(body[1])
+}
+
+func hasRightTrimMarker(body string) bool {
+	return len(body) >= 2 && body[len(body)-1] == '-' && isTemplateWhitespace(body[len(body)-2])
+}
+
+func isTemplateWhitespace(b byte) bool {
+	switch b {
+	case ' ', '\t', '\r', '\n':
+		return true
+	default:
+		return false
+	}
 }
 
 func applyIndent(lines []string, opts Options) []string {

@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 	"testing"
+	"testing/quick"
+	"text/template"
 )
 
 func lines(ss ...string) string {
@@ -43,10 +46,10 @@ func TestFormat(t *testing.T) {
 			expect: "{{- .foo -}}\n",
 		},
 		{
-			name:   "spacing trim markers no space",
-			input:  "{{-.foo-}}\n",
+			name:   "spacing preserves negative number without trim marker whitespace",
+			input:  "{{-3}}\n",
 			opts:   Options{Spacing: true, IndentStyle: "none"},
-			expect: "{{- .foo -}}\n",
+			expect: "{{ -3 }}\n",
 		},
 		{
 			name:   "spacing trim marker left only",
@@ -373,4 +376,143 @@ func TestFormat(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFormatSpacingPreservesIntegerActionOutput(t *testing.T) {
+	err := quick.Check(func(n int) bool {
+		input := "{{" + strconv.Itoa(n) + "}}"
+
+		formatted, err := formatString(input, Options{Spacing: true, IndentStyle: "none"})
+		if err != nil {
+			t.Logf("format %q: %v", input, err)
+			return false
+		}
+
+		before, err := executeTemplate(input)
+		if err != nil {
+			t.Logf("execute input %q: %v", input, err)
+			return false
+		}
+		after, err := executeTemplate(formatted)
+		if err != nil {
+			t.Logf("execute formatted %q from %q: %v", formatted, input, err)
+			return false
+		}
+		if before != after {
+			t.Logf("format changed output: input %q -> %q, before %q, after %q", input, formatted, before, after)
+			return false
+		}
+		return true
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFormatNoOptionsIsIdentity(t *testing.T) {
+	err := quick.Check(func(input string) bool {
+		formatted, err := formatString(input, Options{IndentStyle: "none"})
+		if err != nil {
+			t.Logf("format %q: %v", input, err)
+			return false
+		}
+		if formatted != input {
+			t.Logf("format changed input with no options: input %q -> %q", input, formatted)
+			return false
+		}
+		return true
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFormatIsIdempotent(t *testing.T) {
+	tests := []struct {
+		name string
+		opts Options
+	}{
+		{name: "none", opts: Options{IndentStyle: "none"}},
+		{name: "spacing", opts: Options{Spacing: true, IndentStyle: "none"}},
+		{name: "spaces", opts: Options{IndentStyle: "spaces", IndentSize: 2}},
+		{name: "tabs", opts: Options{IndentStyle: "tabs", IndentSize: 1}},
+		{name: "spacing and spaces", opts: Options{Spacing: true, IndentStyle: "spaces", IndentSize: 2}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := quick.Check(func(input string) bool {
+				once, err := formatString(input, tt.opts)
+				if err != nil {
+					t.Logf("format once %q with %+v: %v", input, tt.opts, err)
+					return false
+				}
+				twice, err := formatString(once, tt.opts)
+				if err != nil {
+					t.Logf("format twice %q with %+v: %v", once, tt.opts, err)
+					return false
+				}
+				if twice != once {
+					t.Logf("format not idempotent with %+v: input %q -> %q -> %q", tt.opts, input, once, twice)
+					return false
+				}
+				return true
+			}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestFormatSpacingPreservesStringLiteralActionOutput(t *testing.T) {
+	err := quick.Check(func(s string) bool {
+		input := "{{" + strconv.Quote(s) + "}}"
+
+		formatted, err := formatString(input, Options{Spacing: true, IndentStyle: "none"})
+		if err != nil {
+			t.Logf("format %q: %v", input, err)
+			return false
+		}
+
+		before, err := executeTemplate(input)
+		if err != nil {
+			t.Logf("execute input %q: %v", input, err)
+			return false
+		}
+		after, err := executeTemplate(formatted)
+		if err != nil {
+			t.Logf("execute formatted %q from %q: %v", formatted, input, err)
+			return false
+		}
+		if before != after {
+			t.Logf("format changed output: input %q -> %q, before %q, after %q", input, formatted, before, after)
+			return false
+		}
+		return true
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func formatString(input string, opts Options) (string, error) {
+	var buf bytes.Buffer
+	if err := Format(&buf, strings.NewReader(input), opts); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func executeTemplate(src string) (string, error) {
+	tmpl, err := template.New("test").Parse(src)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, nil); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
