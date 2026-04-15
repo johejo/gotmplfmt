@@ -26,9 +26,11 @@ to
 
 ## Indent Style
 
-`--indent-style=none` (default) or `--indent-style=tabs` or `--indent-style=spaces`
+`--indent-style=none` (default), `--indent-style=tabs`, or `--indent-style=spaces`
 
-`--indent-size=2` (default for tabs annd spaces) or `--indent-size=<number>`
+`--indent-style=tabs` uses one tab per indent level.
+
+`--indent-style=spaces` uses `--indent-size=<positive-number>` spaces per indent level. The default is `--indent-size=2`.
 
 For example, with `--indent-style=spaces` and `--indent-size=2`, it will change
 

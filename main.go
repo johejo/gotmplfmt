@@ -13,7 +13,7 @@ var (
 	flagW           = flag.Bool("w", false, "write result to (source) file instead of stdout")
 	flagSpacing     = flag.Bool("spacing", false, "add spaces inside {{ }} braces")
 	flagIndentStyle = flag.String("indent-style", "none", "indentation style: none, tabs, spaces")
-	flagIndentSize  = flag.Int("indent-size", 2, "indentation size")
+	flagIndentSize  = flag.Int("indent-size", 2, "number of spaces per indent level when indent-style=spaces")
 	flagVersion     = flag.Bool("version", false, "print version and exit")
 
 	version string
@@ -30,7 +30,7 @@ func main() {
 	opts := Options{
 		Spacing:     *flagSpacing,
 		IndentStyle: *flagIndentStyle,
-		IndentSize:  *flagIndentSize,
+		IndentSize:  resolveIndentSize(*flagIndentStyle, *flagIndentSize),
 	}
 
 	switch opts.IndentStyle {
@@ -38,8 +38,8 @@ func main() {
 	default:
 		log.Fatalf("invalid indent-style: %q (must be none, tabs, or spaces)", opts.IndentStyle)
 	}
-	if opts.IndentSize < 0 {
-		log.Fatalf("invalid indent-size: %d (must be non-negative)", opts.IndentSize)
+	if opts.IndentSize <= 0 {
+		log.Fatalf("invalid indent-size: %d (must be positive)", opts.IndentSize)
 	}
 
 	args := flag.Args()
@@ -58,6 +58,13 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+}
+
+func resolveIndentSize(indentStyle string, indentSize int) int {
+	if indentStyle == "tabs" {
+		return 1
+	}
+	return indentSize
 }
 
 func processFile(path string, opts Options) error {

@@ -554,6 +554,49 @@ func TestResolveVersion(t *testing.T) {
 	}
 }
 
+func TestResolveIndentSize(t *testing.T) {
+	tests := []struct {
+		name        string
+		indentStyle string
+		indentSize  int
+		want        int
+	}{
+		{
+			name:        "spaces default",
+			indentStyle: "spaces",
+			indentSize:  2,
+			want:        2,
+		},
+		{
+			name:        "tabs default",
+			indentStyle: "tabs",
+			indentSize:  2,
+			want:        1,
+		},
+		{
+			name:        "tabs ignores indent size",
+			indentStyle: "tabs",
+			indentSize:  4,
+			want:        1,
+		},
+		{
+			name:        "none keeps flag default",
+			indentStyle: "none",
+			indentSize:  2,
+			want:        2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveIndentSize(tt.indentStyle, tt.indentSize)
+			if got != tt.want {
+				t.Fatalf("resolveIndentSize(%q, %d) = %d, want %d", tt.indentStyle, tt.indentSize, got, tt.want)
+			}
+		})
+	}
+}
+
 func formatString(input string, opts Options) (string, error) {
 	var buf bytes.Buffer
 	if err := Format(&buf, strings.NewReader(input), opts); err != nil {
